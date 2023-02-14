@@ -40,6 +40,8 @@ end
 
 local function suspend(job)
     job.flags.suspend = true
+    job.flags.working = false
+    dfhack.job.removeWorker(job, 0)
 end
 
 local function unsuspend(job)
