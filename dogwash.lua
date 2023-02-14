@@ -6,38 +6,43 @@ local max_send = 10
 local gui = require "gui"
 local guidm = require "gui.dwarfmode"
 local widgets = require "gui.widgets"
+local overlay = require "plugins.overlay"
 
-DogWash = defclass(DogWash, gui.ZScreen)
+-- TODO: maybe make this a hotspot instead. you'd hover over a message to pop up
+-- a dialog to manage the dogs in there
+DogWash = defclass(DogWash, overlay.OverlayWidget)
 DogWash.ATTRS {
-    focus_path = "dogwash"
+    viewscreens = 'dwarfmode/Zone/Some/Pen',
+    default_enabled = true,
+    default_pos = { x = 3, y = -3 },
+    frame = { w = 60, h = 40 },
+    frame_style = gui.WINDOW_FRAME,
+    frame_background=gui.CLEAR_PEN,
 }
 
--- TODO: make this an overlay on dwarfmode/Zone/Some/Pen
 function DogWash:init()
-    local window = widgets.Window {
-            view_id = "main",
-            -- Show at bottom left to avoid details pane
-            frame = { b = 3, l = 3, w = 60, h = 40 },
-            frame_title="DogWash",
-            drag_anchors={title=true, frame=true, body=true},
-            autoarrange_subviews=true,
-        }
-    window:addviews {
-        widgets.WrappedLabel {
-            view_id = "text",
-            frame = { t = 0 },
-            text_to_wrap = 'Please select a Pen/Pasture (using z)',
-            auto_height = true,
-        },
-        widgets.List {
-            view_id = "dogs",
-            frame = {t = 0},
-            on_select = function(_, choice)
-                self:gotoDog(choice.unitId)
-            end,
+    self:addviews {
+        widgets.Window {
+            subviews = {
+                -- TODO: why doesn't this label show up
+                widgets.WrappedLabel {
+                    view_id = "text",
+                    frame = { t=0},
+                    text_to_wrap = 'Please select a Pen/Pasture (using z)',
+                    auto_height = true,
+                },
+                widgets.List {
+                    view_id = "dogs",
+                    frame = { t = 0 },
+                    on_select = function(_, choice)
+                        self:gotoDog(choice.unitId)
+                    end,
+                }
+            }
         }
     }
-    self:addviews { window }
+    -- TODO: DEBUG
+    printall(self)
 end
 
 
@@ -66,6 +71,18 @@ function DogWash:gotoDog(id)
 
 end
 
+-- TODO: get mouse events on an overlay
+function DogWash:onInput(keys)
+    return DogWash.super.onInput(self, keys)
+
+    -- if keys._MOUSE_L_DOWN then
+    --     print("handled 1")
+    --     return true
+    -- end
+    -- print("handled 2")
+    -- return false
+end
+
 local CURSOR_TILE = dfhack.screen.findGraphicsTile('CURSORS', 0, 0)
 function DogWash:onRenderFrame(painter, frame_rect)
     if self.selected == nil then
@@ -83,8 +100,11 @@ function DogWash:onRenderFrame(painter, frame_rect)
 end
 
 function DogWash:onRenderBody()
+    printall(self.subviews.screen)
+    local doglist = self.subviews.dogs
     local text = self.subviews.text
     local showmsg = function(msg)
+        print("Setting text to ", msg)
         text.text_to_wrap = msg
     end
 
@@ -116,9 +136,10 @@ function DogWash:onRenderBody()
     end
 
     -- No need to do anything else if selection hasn't changed
-    if #self.subviews.dogs:getChoices() > 0 and zone == nil then
+    if #doglist:getChoices() > 0 and (zone == nil or self.pen == zone) then
         return
     end
+
 
     for _, unitId in pairs(self.pen.assigned_units) do
         local unit = df.unit.find(unitId)
@@ -156,7 +177,7 @@ function DogWash:onRenderBody()
 
     if #animals > 0 then
         showmsg(string.format("%d animals have spatters on them", #animals))
-        self.subviews.dogs:setChoices(animals)
+        doglist:setChoices(animals)
     end
 end
 
@@ -175,4 +196,10 @@ if #args > 0 then
     max_send = args[1]
 end
 
-View = View and View:raise() or DogWash{}:show()
+OVERLAY_WIDGETS = {overlay=DogWash}
+
+if dfhack_flags.module then
+    return
+end
+
+-- View = View and View:raise() or DogWash{}:show()
