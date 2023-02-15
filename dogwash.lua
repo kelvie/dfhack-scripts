@@ -82,8 +82,6 @@ function DogWashOverlay:onRenderBody()
         end
     end
 
-    local animals = {}
-
     local zonetype = df.civzone_type[self.pen.type]
 
     if zonetype ~= "Pen" then
@@ -99,6 +97,7 @@ function DogWashOverlay:onRenderBody()
         return
     end
 
+    local spattered_count = 0
     -- No need to do anything else if selection hasn't changed, unless we
     -- haven't gotten our first update yet
     if self.first_updated and self.pen == zone then
@@ -112,37 +111,16 @@ function DogWashOverlay:onRenderBody()
             goto continue
         end
 
-        local spatters = #unit.body.spatters
-        local name = dfhack.TranslateName(unit.name)
-        if not name or name == "" then
-            name = "stray dog"
+        if #unit.body.spatters > 0 then
+            spattered_count = spattered_count + 1
         end
-
-        -- for console printing
-        -- name = dfhack.df2utf(name)
-        if spatters == 0 then
-            goto continue
-        end
-        table.insert(animals, {
-            text = string.format("Pastured animal %d (%s) has %d spatter(s)",
-                unitId, name, spatters),
-            unitId = unitId,
-        })
-
-        -- Use a persist table, make this a module so that it can be enabled and
-        -- run in the background
-        -- https://docs.dfhack.org/en/latest/docs/dev/Lua%20API.html#enabling-and-disabling-scripts
-        --
-        -- See fix/protect-nicks.lua
-        -- TODO: assign them to a new pasture
-        -- TODO: send them back to the original pen somehow? needs persistence
         ::continue::
     end
 
     self.first_updated = true
-    if #animals > 0 then
+    if spattered_count > 0 then
         showmsg{
-            string.format("%d animals have spatters.\n", #animals),
+            string.format("%d animals have spatters.\n", spattered_count),
             "Click here to send them to the wash!",
         }
     else
@@ -174,6 +152,7 @@ function DogWash:init()
             auto_width = true,
         },
         widgets.Label {
+            view_id = 'current_pasture',
             frame = { t = 0, l = label_width + 1 },
             text = "Unset",
         },
@@ -184,6 +163,7 @@ function DogWash:init()
         },
 
         widgets.Label {
+            view_id = 'wash_pasture',
             frame = { t = 1, l = label_width + 1 },
             text = "Unset",
         },
@@ -211,7 +191,7 @@ function DogWash:init()
         widgets.HotkeyLabel {
             text_pen = gui.COLOR_GREEN,
             frame = { b = 0 , l = 0, h = 1},
-            label = "Select Cleaning Pasture",
+            label = "Start washing!",
             auto_width = true,
             on_activate = function()
             end,
@@ -225,13 +205,14 @@ function DogWash:init()
             on_activate = function()
                 self:dismiss()
             end,
-        },
+        }
     }
     self:addviews { window }
 end
 
 function DogWash:setPen(pen)
     self.pen = pen
+    -- TODO: normalize use of pen vs pasture
 end
 
 function DogWash:gotoDog(id)
@@ -302,6 +283,8 @@ function DogWash:onRenderBody()
     if zonetype ~= "Pen" then
         showmsg(string.format("Selected zone is not a Pen: %s", zonetype))
         self.subviews.dogs:setChoices({})
+        self.subviews.current_pasture:setText("Unset")
+        self.subviews.wash_pasture:setText("Unset")
         return
     end
 
@@ -314,6 +297,8 @@ function DogWash:onRenderBody()
         return
     end
 
+    self.subviews.current_pasture:setText(#self.pen.name > 0 and self.pen.name or "Unnamed pen/pasture")
+
     for _, unitId in pairs(self.pen.assigned_units) do
         local unit = df.unit.find(unitId)
         if unit == nil then
@@ -322,10 +307,16 @@ function DogWash:onRenderBody()
         end
 
         local spatters = #unit.body.spatters
-        local name = dfhack.TranslateName(unit.name)
-        -- TODO: determine animal type
+        local name = dfhack.TranslateName(dfhack.units.getVisibleName(unit))
         if not name or name == "" then
-            name = "stray dog"
+            local creature_raw = df.global.world.raws.creatures.all[unit.race]
+
+            local creature = "unknown creature"
+            if creature_raw then
+                -- [0] is singular, I think
+                creature = creature_raw.name[0]
+            end
+            name = "Unnamed " .. creature
         end
 
         -- for console printing
