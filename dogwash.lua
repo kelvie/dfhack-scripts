@@ -17,7 +17,7 @@ DogWashOverlay.ATTRS {
     } ,
     default_enabled = true,
     default_pos = { x = 7, y = 13 },
-    frame = { w = 35, h = 4 },
+    frame = { w = 34, h = 5 },
 }
 
 function DogWashOverlay:init()
@@ -26,7 +26,7 @@ function DogWashOverlay:init()
         widgets.WrappedLabel {
             view_id = "text",
             text_to_wrap = 'Please select a Pen/Pasture (using z)',
-            frame = {h = 4},
+            auto_height = true,
             on_click = function()
                 -- TODO: pass in seleted pen (or somehow don't lose selection)
                 if View then
@@ -55,8 +55,8 @@ end
 --     -- return false
 -- end
 
-
 function DogWashOverlay:onRenderBody()
+    self:updateLayout()
     local text = self.subviews.text
     local showmsg = function(msg)
         text.text_to_wrap = msg
@@ -81,7 +81,6 @@ function DogWashOverlay:onRenderBody()
             return
         end
     end
-
 
     local animals = {}
 
@@ -163,25 +162,70 @@ function DogWash:init()
     local window = widgets.Window {
             view_id = "main",
             -- Show at bottom left to avoid details pane
-            frame = { b = 3, l = 3, w = 40, h = 40 },
+            frame = { b = 3, l = 3, w = 40, h = 32 },
             frame_title="DogWash",
             drag_anchors={title=true, frame=true, body=true},
-            autoarrange_subviews=true,
         }
+    local label_width = 18;
     window:addviews {
+        widgets.Label {
+            frame = { l = 0, t = 0 },
+            text = "Current pasture:",
+            auto_width = true,
+        },
+        widgets.Label {
+            frame = { t = 0, l = label_width + 1 },
+            text = "Unset",
+        },
+
+        widgets.Label {
+            frame = { l = 0, t = 1 },
+            text = "Wash pasture:",
+        },
+
+        widgets.Label {
+            frame = { t = 1, l = label_width + 1 },
+            text = "Unset",
+        },
+
         widgets.WrappedLabel {
             view_id = "text",
-            frame = { t = 0 },
+            frame = { t = 3 },
             text_to_wrap = 'Please select a Pen/Pasture (using z)',
             auto_height = true,
         },
-        widgets.List {
-            view_id = "dogs",
-            frame = {t = 1},
-            on_select = function(_, choice)
-                self:gotoDog(choice.unitId)
+        widgets.Panel {
+            subviews = {
+                widgets.List {
+                    view_id = "dogs",
+                    frame = { t = 5, h = 20 },
+                    on_select = function(_, choice)
+                        if choice then
+                            self:gotoDog(choice.unitId)
+                        end
+                    end,
+                },
+            }
+        },
+
+        widgets.HotkeyLabel {
+            text_pen = gui.COLOR_GREEN,
+            frame = { b = 0 , l = 0, h = 1},
+            label = "Select Cleaning Pasture",
+            auto_width = true,
+            on_activate = function()
             end,
-        }
+        },
+        widgets.HotkeyLabel {
+            text_pen = gui.COLOR_RED,
+            frame = { b = 0,  r = 0, h = 1 },
+            label = "Close",
+            auto_width = true,
+            -- not using on-activate because it doesn't activate hover
+            on_activate = function()
+                self:dismiss()
+            end,
+        },
     }
     self:addviews { window }
 end
@@ -257,6 +301,7 @@ function DogWash:onRenderBody()
 
     if zonetype ~= "Pen" then
         showmsg(string.format("Selected zone is not a Pen: %s", zonetype))
+        self.subviews.dogs:setChoices({})
         return
     end
 
@@ -304,8 +349,11 @@ function DogWash:onRenderBody()
     end
 
     if #animals > 0 then
-        showmsg(string.format("%d animals have spatters on them", #animals))
+        showmsg(string.format("%d animals have spatters", #animals))
         self.subviews.dogs:setChoices(animals)
+    else
+        showmsg("All animals in this pasture are clean!")
+        self.subviews.dogs:setChoices({})
     end
 end
 
