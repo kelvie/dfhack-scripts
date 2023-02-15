@@ -190,6 +190,7 @@ function DogWash:init()
 
         widgets.HotkeyLabel {
             text_pen = gui.COLOR_GREEN,
+            text_hpen = dfhack.pen.make(gui.COLOR_BLACK, nil, gui.COLOR_GREEN),
             frame = { b = 0 , l = 0, h = 1},
             label = "Start washing!",
             auto_width = true,
@@ -198,6 +199,7 @@ function DogWash:init()
         },
         widgets.HotkeyLabel {
             text_pen = gui.COLOR_RED,
+            text_hpen = dfhack.pen.make(gui.COLOR_BLACK, nil, gui.COLOR_RED),
             frame = { b = 0,  r = 0, h = 1 },
             label = "Close",
             auto_width = true,
